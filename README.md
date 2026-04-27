@@ -4,86 +4,117 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MINTECH PHARMA</title>
-    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
     <style>
-        body { background-color: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
+        /* Deep green background with light aura */
+        body { 
+            background-color: #051a05; 
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(0, 255, 127, 0.2) 0px, transparent 50%),
+                radial-gradient(at 90% 20%, rgba(34, 139, 34, 0.15) 0px, transparent 40%),
+                radial-gradient(at 50% 90%, rgba(0, 250, 154, 0.1) 0px, transparent 35%);
+            color: #fff; 
+            font-family: sans-serif; 
+            padding: 20px; 
+            margin: 0; 
+            min-height: 100vh;
+        }
         header { display: flex; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
-        .logo { font-size: 22px; font-weight: bold; color: #007bff; display: flex; align-items: center; }
-        .plus-red { color: #ff4444; font-size: 30px; margin-right: 10px; font-weight: 900; }
-        .section-header { color: #888; font-size: 14px; text-transform: uppercase; margin-bottom: 15px; }
-        .doctor-card { background: #1e1e1e; padding: 15px; border-radius: 12px; display: flex; align-items: center; margin-bottom: 12px; border: 1px solid #333; }
-        /* 2. Styling for the Profile Image */
-        .doctor-img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; margin-right: 20px; border: 2px solid #333; }
-        .placeholder-avatar { width: 70px; height: 70px; background: #333; border-radius: 50%; margin-right: 20px; display: flex; justify-content: center; align-items: center; font-size: 24px; color: #666; }
-        .fab { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #007bff; border-radius: 50%; color: white; font-size: 35px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; }
+        .logo { font-size: 32px; font-weight: 900; color: #ffffff; display: flex; align-items: center; }
+        .plus-red { color: #ff4444; font-size: 30px; margin-right: 10px; font-weight: 900;   
+        .doctor-card { background: #1e1e1e; padding: 15px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .img-preview { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-right: 15px; }
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #007bff; border-radius: 50%; color: white; font-size: 30px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); padding: 20px; box-sizing: border-box; }
+        .modal-content { background: #222; padding: 20px; border-radius: 12px; margin-top: 50px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; box-sizing: border-box; }
+        .btn { padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; width: 100%; margin-top: 5px; cursor: pointer; }
+        .del-app-btn { background: #ff4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; }
     </style>
 </head>
 <body>
     <header>
-        <div class="logo"><span class="plus-red">+</span> MINTECH PHARMA</div>
+        <div class="logo">
+            <span class="plus-red">+</span> MINTECH PHARMA
+        </div>
     </header>
-    <div class="section-header">DOCTORS</div>
     <div id="doctor-list"></div>
-    <button class="fab" onclick="addNewDoctor()">+</button>
+    <input type="file" id="fileInput" style="display:none" accept="image/*" onchange="addDoc(this)">
+    <button class="fab" onclick="document.getElementById('fileInput').click()">+</button>
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <input type="text" id="pName" placeholder="Patient Name">
+            <input type="text" id="pPhone" placeholder="Phone Number">
+            <button class="btn" onclick="saveAppointment()">Add Appointment</button>
+            <div id="doc-specific-apps" style="margin-top:20px; border-top: 1px solid #444; padding-top: 10px;"></div>
+            <button class="btn" style="background:#444" onclick="document.getElementById('modal').style.display='none'">Close</button>
+        </div>
+    </div>
     <script>
-        // 3. Load data on page open
-        window.onload = loadDoctors;
-        // 4. Initialize the Cloudinary Widget (Handles the gallery upload)
-        var myWidget = cloudinary.createUploadWidget({
-            cloudName: 'demo', // REPLACE THIS with your Cloud Name
-            uploadPreset: 'default' // REPLACE THIS with your unsigned preset
-        }, (error, result) => { 
-            if (!error && result && result.event === "success") { 
-                // Image successfully uploaded to the cloud!
-                const imageUrl = result.info.secure_url;
-                saveDoctor(imageUrl);
-            }
-        });
-        // Current temporary data holder
-        let tempDoctor = { name: '', degree: '' };
-        function addNewDoctor() {
-            const name = prompt("Enter Doctor's Name:");
-            const degree = prompt("Enter Degree (e.g., MBBS, MS):"); 
-            if (name && degree) {
-                tempDoctor.name = name;
-                tempDoctor.degree = degree;
-                // NOW open the widget so they can pick the picture.
-                myWidget.open();
+        let currentDocId = null;
+        function addDoc(input) {
+            if (input.files[0]) {
+                let name = prompt("Doctor Name:");
+                let degree = prompt("Degree:");
+                let reader = new FileReader();
+                reader.onload = (e) => {
+                    let docs = JSON.parse(localStorage.getItem('my_doctors') || '[]');
+                    docs.push({ id: Date.now(), name, degree, photo: e.target.result });
+                    localStorage.setItem('my_doctors', JSON.stringify(docs));
+                    location.reload();
+                };
+                reader.readAsDataURL(input.files[0]);
             }
         }
-        function saveDoctor(imageUrl) {
-            // Take the temp info + the newly created image URL
-            const finalDoctor = { 
-                name: tempDoctor.name, 
-                degree: tempDoctor.degree, 
-                photo: imageUrl,
-                id: Date.now() 
-            };
-            // Save the complete entry to the phone's memory
-            let doctors = JSON.parse(localStorage.getItem('my_doctors_complete') || '[]');
-            doctors.push(finalDoctor);
-            localStorage.setItem('my_doctors_complete', JSON.stringify(doctors));
-            // Clear temp holder and refresh the list
-            tempDoctor = { name: '', degree: '' };
-            loadDoctors();
-        }
-        function loadDoctors() {
-            const container = document.getElementById('doctor-list');
-            const doctors = JSON.parse(localStorage.getItem('my_doctors_complete') || '[]');   
-            if (doctors.length === 0) {
-                container.innerHTML = `<p style="color:#666; font-style:italic">No doctors listed yet.</p>`;
-                return;
-            }
-            container.innerHTML = doctors.map(d => `
-                <div class="doctor-card">
-                    ${d.photo ? `<img src="${d.photo}" class="doctor-img" alt="${d.name}">` : `<div class="placeholder-avatar">👤</div>`}
-                    <div>
-                        <div style="font-weight:bold; font-size:18px">${d.name}</div>
-                        <div style="color:#aaa; font-size:14px">${d.degree}</div>
-                    </div>
+        function openModal(id, name) {
+            currentDocId = id;
+            document.getElementById('modal-title').innerText = "Appointments: " + name;
+            let apps = JSON.parse(localStorage.getItem('apps_' + id) || '[]');
+        document.getElementById('doc-specific-apps').innerHTML = apps.map((a, index) => `
+                <div style="background:#333; padding:8px; border-radius:5px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${a.name} - ${a.phone}</span>
+                    <button class="del-app-btn" onclick="deleteAppointment(${index})">Delete</button>
                 </div>
             `).join('');
+            document.getElementById('modal').style.display = 'block';
         }
+        function saveAppointment() {
+            let name = document.getElementById('pName').value;
+            let phone = document.getElementById('pPhone').value;
+            if(name && phone) {
+                let apps = JSON.parse(localStorage.getItem('apps_' + currentDocId) || '[]');
+                apps.push({ name, phone });
+                localStorage.setItem('apps_' + currentDocId, JSON.stringify(apps));
+                document.getElementById('pName').value = '';
+                document.getElementById('pPhone').value = '';
+                openModal(currentDocId, document.getElementById('modal-title').innerText.replace("Appointments: ", ""));
+            }
+        }
+        function deleteAppointment(index) {
+            let apps = JSON.parse(localStorage.getItem('apps_' + currentDocId) || '[]');
+            apps.splice(index, 1);
+            localStorage.setItem('apps_' + currentDocId, JSON.stringify(apps));
+            openModal(currentDocId, document.getElementById('modal-title').innerText.replace("Appointments: ", ""));
+        }
+        function deleteDoc(id, e) {
+            e.stopPropagation();
+            if(confirm("Delete doctor?")) {
+                let docs = JSON.parse(localStorage.getItem('my_doctors') || '[]');
+                localStorage.setItem('my_doctors', JSON.stringify(docs.filter(d => d.id !== id)));
+                localStorage.removeItem('apps_' + id);
+                location.reload();
+            }
+        }
+        let docs = JSON.parse(localStorage.getItem('my_doctors') || '[]');
+        document.getElementById('doctor-list').innerHTML = docs.map(d => `
+            <div class="doctor-card" onclick="openModal(${d.id}, '${d.name}')">
+                <div style="display:flex; align-items:center;">
+                    <img src="${d.photo}" class="img-preview">
+                    <div><b>${d.name}</b><br><small style="color:#aaa">${d.degree}</small></div>
+                </div>
+                <button class="btn" style="width:auto; background:#ff4444" onclick="deleteDoc(${d.id}, event)">Delete</button>
+            </div>
+        `).join('');
     </script>
 </body>
 </html>
